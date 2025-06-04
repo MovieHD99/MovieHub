@@ -23,20 +23,21 @@
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: transform 0.2s ease-in-out;
+            cursor: pointer; /* Indicate it's clickable */
         }
         .movie-card-item:hover {
             transform: translateY(-5px);
         }
         .movie-poster-item {
             max-width: 100%;
-            height: 250px; /* Fixed height for poster consistency */
-            object-fit: cover; /* Ensures poster covers the area, might crop */
+            height: 250px;
+            object-fit: cover;
             border-radius: 4px;
             margin-bottom: 10px;
         }
         .movie-title-item {
             font-weight: bold;
-            min-height: 3em; /* Allow for 2 lines of title */
+            min-height: 3em;
             font-size: 0.9rem;
         }
         .movie-year-item {
@@ -78,6 +79,59 @@
         .page-info {
             font-size: 0.9rem;
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6); /* Dim background */
+            padding-top: 30px; /* Give some space from top */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 25px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 700px;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .modal-close-button:hover,
+        .modal-close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-poster {
+            max-width: 180px; /* Smaller poster in modal */
+            height: auto;
+            border-radius: 6px;
+            margin-right: 20px;
+            float: left; /* Float poster to the left */
+        }
+        .modal-body::after { /* Clearfix for floated poster */
+            content: "";
+            clear: both;
+            display: table;
+        }
+        .modal-body h2 {
+            margin-top: 0; /* Adjust title margin due to floated poster */
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
@@ -106,15 +160,24 @@
         </div>
     </div>
 
+    <!-- Movie Details Modal -->
+    <div id="movieDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" id="modalCloseButton">&times;</span>
+            <div id="modalBodyContent" class="modal-body">
+                <!-- Detailed movie info will be injected here -->
+                <p class="loading-message">Loading details...</p>
+            </div>
+        </div>
+    </div>
+
+
     <footer class="text-center text-gray-600 mt-8 text-sm">
         <p>Powered by <a href="http://www.omdbapi.com/" target="_blank" class="text-blue-500 hover:underline">OMDb API</a></p>
         <p class="text-xs mt-1">Movie metadata and posters via OMDb API. This site does not host or provide movie downloads.</p>
     </footer>
 
     <script>
-        // Your OMDb API Key
-        // IMPORTANT: In a real public application, you should not expose your API key directly in client-side JavaScript.
-        // Consider using a backend server to make API requests.
         const apiKey = '69b21672'; // User's provided API key
 
         const searchButton = document.getElementById('searchButton');
@@ -123,18 +186,23 @@
         const errorMessageDiv = document.getElementById('errorMessage');
         const loadingDiv = document.getElementById('loading');
         const noResultsDiv = document.getElementById('noResults');
+        
         const paginationControlsDiv = document.getElementById('paginationControls');
         const prevButton = document.getElementById('prevButton');
         const nextButton = document.getElementById('nextButton');
         const pageInfoSpan = document.getElementById('pageInfo');
 
+        const movieDetailsModal = document.getElementById('movieDetailsModal');
+        const modalCloseButton = document.getElementById('modalCloseButton');
+        const modalBodyContent = document.getElementById('modalBodyContent');
+
         let currentPage = 1;
         let currentQuery = '';
         let totalResults = 0;
-        const resultsPerPage = 10; // OMDb API returns 10 results per page with 's=' parameter
+        const resultsPerPage = 10;
 
         async function searchMovies(query, page = 1) {
-            currentQuery = query; // Store current query for pagination
+            currentQuery = query;
             currentPage = page;
 
             if (!query) {
@@ -143,7 +211,6 @@
                 return;
             }
 
-            // Clear previous results and errors, show loading
             moviesGridDiv.innerHTML = '';
             errorMessageDiv.textContent = '';
             errorMessageDiv.classList.add('hidden');
@@ -156,8 +223,7 @@
             try {
                 const response = await fetch(apiUrl);
                 const data = await response.json();
-
-                loadingDiv.classList.add('hidden'); // Hide loading
+                loadingDiv.classList.add('hidden');
 
                 if (data.Response === "True" && data.Search && data.Search.length > 0) {
                     totalResults = parseInt(data.totalResults, 10);
@@ -170,21 +236,22 @@
                     hidePagination();
                 }
             } catch (error) {
-                loadingDiv.classList.add('hidden'); // Hide loading
+                loadingDiv.classList.add('hidden');
                 totalResults = 0;
-                console.error("Error fetching movie data:", error);
-                displayError("Failed to fetch movie data. Check your network connection or the API service.");
+                console.error("Error fetching movie list:", error);
+                displayError("Failed to fetch movie list. Check network or API.");
                 hidePagination();
             }
         }
 
         function displayMoviesList(movies) {
-            moviesGridDiv.innerHTML = ''; // Clear previous grid items
+            moviesGridDiv.innerHTML = ''; 
             noResultsDiv.classList.add('hidden');
 
             movies.forEach(movie => {
                 const movieCard = document.createElement('div');
                 movieCard.classList.add('movie-card-item');
+                movieCard.setAttribute('data-imdbid', movie.imdbID); // Store IMDb ID
 
                 const posterUrl = movie.Poster !== "N/A" ? movie.Poster : `https://placehold.co/180x250/EFEFEF/AAAAAA&text=No+Poster`;
 
@@ -192,12 +259,61 @@
                     <img src="${posterUrl}" alt="${movie.Title} Poster" class="movie-poster-item" onerror="this.onerror=null;this.src='https://placehold.co/180x250/EFEFEF/AAAAAA&text=Image+Error';">
                     <div class="movie-title-item">${movie.Title}</div>
                     <div class="movie-year-item">${movie.Year}</div>
-                    <!-- You could add a button/link here to fetch full details for this movie using its IMDb ID (movie.imdbID) -->
-                    <!-- Example: <button onclick="fetchMovieDetails('${movie.imdbID}')">Details</button> -->
                 `;
+                // Add click listener to fetch and show full details
+                movieCard.addEventListener('click', () => fetchAndShowMovieDetails(movie.imdbID));
                 moviesGridDiv.appendChild(movieCard);
             });
         }
+
+        async function fetchAndShowMovieDetails(imdbID) {
+            modalBodyContent.innerHTML = '<p class="loading-message">Loading details...</p>';
+            movieDetailsModal.style.display = 'block'; // Show modal
+
+            const apiUrl = `https://www.omdbapi.com/?i=${imdbID}&apikey=${apiKey}&plot=full`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const movie = await response.json();
+
+                if (movie.Response === "True") {
+                    const posterUrl = movie.Poster !== "N/A" ? movie.Poster : `https://placehold.co/180x270/EFEFEF/AAAAAA&text=No+Poster`;
+                    modalBodyContent.innerHTML = `
+                        <img src="${posterUrl}" alt="${movie.Title} Poster" class="modal-poster shadow-md" onerror="this.onerror=null;this.src='https://placehold.co/180x270/EFEFEF/AAAAAA&text=Image+Error';">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-3">${movie.Title} (${movie.Year})</h2>
+                        <p class="text-gray-700 mb-1"><strong>Rated:</strong> ${movie.Rated}</p>
+                        <p class="text-gray-700 mb-1"><strong>Released:</strong> ${movie.Released}</p>
+                        <p class="text-gray-700 mb-1"><strong>Runtime:</strong> ${movie.Runtime}</p>
+                        <p class="text-gray-700 mb-1"><strong>Genre:</strong> ${movie.Genre}</p>
+                        <p class="text-gray-700 mb-1"><strong>Director:</strong> ${movie.Director}</p>
+                        <p class="text-gray-700 mb-1"><strong>Writer:</strong> ${movie.Writer}</p>
+                        <p class="text-gray-700 mb-2"><strong>Actors:</strong> ${movie.Actors}</p>
+                        <p class="text-gray-700 mb-1"><strong>Language:</strong> ${movie.Language}</p>
+                        <p class="text-gray-700 mb-1"><strong>Country:</strong> ${movie.Country}</p>
+                        <p class="text-gray-700 mb-2"><strong>Awards:</strong> ${movie.Awards}</p>
+                        <p class="text-gray-700 mb-1"><strong>IMDb Rating:</strong> ${movie.imdbRating} (${movie.imdbVotes} votes)</p>
+                        ${movie.Ratings && movie.Ratings.length > 0 ? `
+                        <div class="mt-3">
+                            <h3 class="text-lg font-semibold text-gray-700 mb-1">Other Ratings:</h3>
+                            <ul class="list-disc list-inside text-gray-600">
+                                ${movie.Ratings.map(rating => `<li>${rating.Source}: ${rating.Value}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        <div class="mt-3">
+                            <h3 class="text-lg font-semibold text-gray-700 mb-1">Plot:</h3>
+                            <p class="text-gray-600 leading-relaxed">${movie.Plot}</p>
+                        </div>
+                    `;
+                } else {
+                    modalBodyContent.innerHTML = `<p class="error-message">${movie.Error || "Could not fetch details."}</p>`;
+                }
+            } catch (error) {
+                console.error("Error fetching movie details:", error);
+                modalBodyContent.innerHTML = `<p class="error-message">Failed to fetch details. Check network or API.</p>`;
+            }
+        }
+
 
         function displayError(message) {
             errorMessageDiv.textContent = message;
@@ -222,22 +338,22 @@
             nextButton.disabled = currentPage >= totalPages;
         }
 
+        // Event Listeners for main search
         searchButton.addEventListener('click', () => {
             searchMovies(movieQueryInput.value.trim(), 1);
         });
-
         movieQueryInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
                 searchMovies(movieQueryInput.value.trim(), 1);
             }
         });
 
+        // Event Listeners for pagination
         prevButton.addEventListener('click', () => {
             if (currentPage > 1) {
                 searchMovies(currentQuery, currentPage - 1);
             }
         });
-
         nextButton.addEventListener('click', () => {
             const totalPages = Math.ceil(totalResults / resultsPerPage);
             if (currentPage < totalPages) {
@@ -245,12 +361,22 @@
             }
         });
 
-        // Initial load with a sample search to demonstrate list and pagination
+        // Modal close functionality
+        modalCloseButton.addEventListener('click', () => {
+            movieDetailsModal.style.display = 'none';
+        });
+        // Close modal if user clicks outside of the modal content
+        window.addEventListener('click', (event) => {
+            if (event.target === movieDetailsModal) {
+                movieDetailsModal.style.display = 'none';
+            }
+        });
+
+        // Initial load
         (async () => {
-            movieQueryInput.value = "action"; // Example search term
+            movieQueryInput.value = "action";
             await searchMovies(movieQueryInput.value, 1);
         })();
-
     </script>
 </body>
 </html>
